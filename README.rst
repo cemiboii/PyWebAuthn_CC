@@ -1,17 +1,6 @@
 
-PyWebAuthn
+PyWebAuthn_CC
 ==========
-
-
-.. image:: https://img.shields.io/pypi/v/webauthn.svg
-   :target: https://pypi.python.org/pypi/webauthn
-   :alt: PyPI
-
-
-.. image:: https://img.shields.io/badge/license-BSD-blue.svg
-   :target: https://raw.githubusercontent.com/duo-labs/py_webauthn/master/LICENSE
-   :alt: GitHub license
-
 
 PyWebAuthn is a Python module which can be used to handle `WebAuthn <https://www.w3.org/TR/webauthn/>`_ registration and assertion. Currently, WebAuthn is supported in `Firefox <https://www.mozilla.org/en-US/firefox/new/>`_\ , `Chrome <https://www.google.com/chrome/>`_\ , and `Edge <https://www.microsoft.com/en-us/windows/microsoft-edge>`_.
 
