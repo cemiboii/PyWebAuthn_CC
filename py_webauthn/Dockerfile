@@ -1,5 +1,5 @@
 FROM python:3-slim
-MAINTAINER Cemo Cemsen
+MAINTAINER Duo Labs https://duo.com/labs
 
 RUN mkdir /app
 COPY flask_demo /app/flask_demo/

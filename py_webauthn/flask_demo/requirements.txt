@@ -1,0 +1,15 @@
+# Folgender Code stammt vom Unternehmen Duo Security und wurde unter dem Link https://github.com/duo-labs/py_webauthn von GitHub heruntergeladen. 
+# Einige Abschnitte Stammen vom Autor der Arbeit "Implementierung und Einsatz des WebAuthn-Standard".
+# Um welche Abschnitte es sich dabei handelt, ist der genannten Arbeit zu entnehmen.
+
+cbor2==5.4.1
+cryptography==3.3.2
+Flask==1.0.2
+Flask-Login==0.4.0
+Flask-SQLAlchemy>=2.3.2
+Flask-WTF==0.14.2
+future==0.17.1
+pyOpenSSL==17.5.0
+six==1.11.0
+SQLAlchemy>=1.3.3
+WTForms==2.1
