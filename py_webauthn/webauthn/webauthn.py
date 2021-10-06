@@ -316,7 +316,9 @@ class WebAuthnRegistrationResponse(object):
         credential_pub_key = attestation_data[18 + credential_id_len:]
 
         if fmt == 'apple':
-             # https://webkit.org/blog/11312/meet-face-id-and-touch-id-for-the-web/
+             # Nach der W3C WebAuthn-Spezifikation (https://www.w3.org/TR/webauthn-2/#sctn-apple-anonymous-attestation) 
+             # sieht die Syntax des Apple Attestation Format folgendermaßen aus:
+             #
              # $$attStmtType //= (
              #                        fmt: "apple",
              #                        attStmt: appleStmtFormat
@@ -325,7 +327,7 @@ class WebAuthnRegistrationResponse(object):
              # appleStmtFormat = {
              #                        x5c: [ credCert: bytes, * (caCert: bytes) ]
              #                    }
-             # The semantics of the above fields are as follows:
+             # Dabei gilt:
              # x5c
              #   credCert followed by its certificate chain, each encoded in
              #   X.509 format.
@@ -333,24 +335,24 @@ class WebAuthnRegistrationResponse(object):
              #   The credential public key certificate used for attestation,
              #   encoded in X.509 format.
              #
-             # Here is the verification procedure given inputs attStmt,
-             # authenticatorData and clientDataHash:
-             # 1. Verify that attStmt is valid CBOR conforming to the syntax defined
-             #    above and perform CBOR decoding on it to extract the contained
-             #    fields.
+             # Folgende Schritte sind laut WebAuthn-Spezifikation mit dem Input attStmt, authenticatorData und clientDataHash zur Verifizierung nötig:
+             # 1. Verify that attStmt is valid CBOR conforming to the syntax defined above and perform CBOR decoding on it to extract the contained fields.
+             # 2. Concatenate authenticatorData and clientDataHash to form nonceToHash.
+             # 3. Perform SHA-256 hash of nonceToHash to produce nonce.
+             # 4. Verify that nonce equals the value of the extension with OID 1.2.840.113635.100.8.2 in credCert.
+             # 5. Verify that the credential public key equals the Subject Public Key of credCert.
+             # 6. If successful, return implementation-specific values representing attestation type Anonymization CA and attestation trust path x5c.             
+             # ----------------------------------------------------
+             # 1. 
              if 'x5c' not in att_stmt or len(att_stmt['x5c']) != 2:
                  raise RegistrationRejectedException(
-                     'Attestation statement must be a valid CBOR object.',
+                     'Ungültiges Attestation Statement',
                  )
-             # 2. Concatenate authenticatorData and clientDataHash to form
-             #    nonceToHash.
+             # 2.
              nonce_to_hash = b''.join([auth_data, client_data_hash])
-             # 3. Perform SHA-256 hash of nonceToHash to produce nonce.
+             # 3.
              nonce = hashlib.sha256(nonce_to_hash).digest()
-             # 4. Verify nonce matches the value of the extension with OID
-             #    (1.2.840.113635.100.8.2) in credCert. The nonce here is used to
-             #    prove that the attestation is live and to protect the integrity of
-             #    the authenticatorData and the client data.
+             # 4. 
              oid = x509.ObjectIdentifier('1.2.840.113635.100.8.2')
              att_cert = att_stmt.get('x5c')[0]
              x509_att_cert = load_der_x509_certificate(
@@ -361,10 +363,9 @@ class WebAuthnRegistrationResponse(object):
              ext = extensions.get_extension_for_oid(oid)
              if ext.value.value[6:] != nonce:
                  raise RegistrationRejectedException(
-                     'Attestation certificate GUID must match authenticator data.',
+                     'AAGUID des Attestation Zertifikats stimmt nicht mit den Authenticator Daten überein',
                  )
-             # 5. Verify credential public key matches the Subject Public Key of
-             #    credCert.
+             # 5.
              attestation_data = auth_data[37:]
              credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
              cred_id = attestation_data[18:18 + credential_id_len]
@@ -378,11 +379,9 @@ class WebAuthnRegistrationResponse(object):
                  and credential_pub_key[45:] != subject_pub_key[32:]
              ):
                  raise RegistrationRejectedException(
-                     'Attestation certificate public key must match '
-                     'Subject public key of credCert.',
+                     'Öffentliche Schlüssel stimmen nicht überein',
                  )
-             # 6. If successful, return implementation-specific values representing
-             #    attestation type Anonymous CA and attestation trust path x5c.
+             # 6.
              ca_cert = att_stmt.get('x5c')[1]
              crypto_ca_cert = load_der_x509_certificate(ca_cert,
                                                         default_backend())
@@ -392,21 +391,46 @@ class WebAuthnRegistrationResponse(object):
              trust_path = [x509_att_cert]
              return attestation_type, trust_path, credential_pub_key, cred_id
         elif fmt == AT_FMT_FIDO_U2F:
-            # Step 1.
+            # Nach der W3C WebAuthn-Spezifikation (https://www.w3.org/TR/webauthn-2/#sctn-fido-u2f-attestation) 
+            # sieht die Syntax des FIDO U2F Attestation Statement Format folgendermaßen aus:
             #
-            # Verify that attStmt is valid CBOR conforming to the syntax
-            # defined above and perform CBOR decoding on it to extract the
-            # contained fields.
+            # $$attStmtType //= (
+            #                          fmt: "fido-u2f",
+            #                          attStmt: u2fStmtFormat
+            #                      )
+            #
+            #  u2fStmtFormat = {
+            #                        x5c: [ attestnCert: bytes ],
+            #                        sig: bytes
+            #                    }
+            # Dabei gilt:
+            # x5c
+            # A single element array containing the attestation certificate in X.509 format.
+            # sig
+            # The attestation signature. The signature was calculated over the (raw) 
+            # U2F registration response message received by the client from the authenticator.
+            #
+            # Folgende Schritte sind laut WebAuthn-Spezifikation mit dem Input attStmt, authenticatorData und clientDataHash zur Verifizierung nötig:
+            # 1. Verify that attStmt is valid CBOR conforming to the syntax defined above and perform CBOR decoding on it to extract the contained fields.
+            # 2. Check that x5c has exactly one element and let attCert be that element. Let certificate public key be the public key conveyed by attCert. 
+            #    If certificate public key is not an Elliptic Curve (EC) public key over the P-256 curve, terminate this algorithm and return an appropriate error.
+            # 3. Extract the claimed rpIdHash from authenticatorData, and the claimed credentialId and credentialPublicKey from authenticatorData.attestedCredentialData.
+            # 4. Convert the COSE_KEY formatted credentialPublicKey (see Section 7 of [RFC8152]) to Raw ANSI X9.62 public key format.
+            #    - Let x be the value corresponding to the "-2" key (representing x coordinate) in credentialPublicKey, and confirm its size to be of 32 bytes. 
+            #      If size differs or "-2" key is not found, terminate this algorithm and return an appropriate error.
+            #    - Let y be the value corresponding to the "-3" key (representing y coordinate) in credentialPublicKey, and confirm its size to be of 32 bytes. 
+            #      If size differs or "-3" key is not found, terminate this algorithm and return an appropriate error.
+            #    - Let publicKeyU2F be the concatenation 0x04 || x || y. Note: This signifies uncompressed ECC key format.
+            # 5. Let verificationData be the concatenation of (0x00 || rpIdHash || clientDataHash || credentialId || publicKeyU2F) (see Section 4.3 of [FIDO-U2F-Message-Formats]).
+            # 6. Verify the sig using verificationData and the certificate public key per section 4.1.4 of [SEC1] with SHA-256 as the hash function used in step two.
+            # 7. If successful, return implementation-specific values representing attestation type Basic, AttCA or uncertainty, and attestation trust path x5c.           
+            # ----------------------------------------------------
+            
+            # 1.
             if 'x5c' not in att_stmt or 'sig' not in att_stmt:
                 raise RegistrationRejectedException(
                     'Attestation statement must be a valid CBOR object.')
-
-            # Step 2.
-            #
-            # Let attCert be the value of the first element of x5c. Let certificate
-            # public key be the public key conveyed by attCert. If certificate public
-            # key is not an Elliptic Curve (EC) public key over the P-256 curve,
-            # terminate this algorithm and return an appropriate error.
+            # 2.
             att_cert = att_stmt.get('x5c')[0]
             x509_att_cert = load_der_x509_certificate(att_cert,
                                                       default_backend())
@@ -414,21 +438,7 @@ class WebAuthnRegistrationResponse(object):
             if not isinstance(certificate_public_key.curve, SECP256R1):
                 raise RegistrationRejectedException(
                     'Bad certificate public key.')
-
-            # Step 3.
-            #
-            # Extract the claimed rpIdHash from authenticatorData, and the
-            # claimed credentialId and credentialPublicKey from
-            # authenticatorData.attestedCredentialData.
-
-            # The credential public key encoded in COSE_Key format, as defined in Section 7
-            # of [RFC8152], using the CTAP2 canonical CBOR encoding form. The COSE_Key-encoded
-            # credential public key MUST contain the optional "alg" parameter and MUST NOT
-            # contain any other optional parameters. The "alg" parameter MUST contain a
-            # COSEAlgorithmIdentifier value. The encoded credential public key MUST also
-            # contain any additional required parameters stipulated by the relevant key type
-            # specification, i.e., required for the key type "kty" and algorithm "alg" (see
-            # Section 8 of [RFC8152]).
+            # 3. + 4.
             try:
                 public_key_alg, credential_public_key = _load_cose_public_key(
                     credential_pub_key)
@@ -436,12 +446,7 @@ class WebAuthnRegistrationResponse(object):
                 raise RegistrationRejectedException(str(e))
 
             public_key_u2f = _encode_public_key(credential_public_key)
-
-            # Step 5.
-            #
-            # Let verificationData be the concatenation of (0x00 || rpIdHash ||
-            # clientDataHash || credentialId || publicKeyU2F) (see Section 4.3
-            # of [FIDO-U2F-Message-Formats]).
+            # 5.
             auth_data_rp_id_hash = _get_auth_data_rp_id_hash(auth_data)
             alg = COSE_ALG_ES256
             signature = att_stmt['sig']
@@ -449,11 +454,7 @@ class WebAuthnRegistrationResponse(object):
                 b'\0', auth_data_rp_id_hash, client_data_hash, cred_id,
                 public_key_u2f
             ])
-
-            # Step 6.
-            #
-            # Verify the sig using verificationData and certificate public
-            # key per [SEC1].
+            # 6.
             try:
                 _verify_signature(certificate_public_key, alg,
                                   verification_data, signature)
@@ -462,22 +463,46 @@ class WebAuthnRegistrationResponse(object):
                     'Invalid signature received.')
             except NotImplementedError:
                 raise RegistrationRejectedException('Unsupported algorithm.')
-
-            # Step 7.
-            #
-            # If successful, return attestation type Basic with the
-            # attestation trust path set to x5c.
+            # 7.
             attestation_type = AT_BASIC
             trust_path = [x509_att_cert]
 
             return (attestation_type, trust_path, credential_pub_key, cred_id)
         elif fmt == AT_FMT_PACKED:
+            # Nach der W3C WebAuthn-Spezifikation (https://www.w3.org/TR/webauthn-2/#sctn-packed-attestation) 
+            # sieht die Syntax des Packed Attestation Statement Format folgendermaßen aus:
+            #
+            # $$attStmtType //= (
+            #                          fmt: "packed",
+            #                          attStmt: packedStmtFormat
+            #                      )
+            #
+            # packedStmtFormat = {
+            #                           alg: COSEAlgorithmIdentifier,
+            #                           sig: bytes,
+            #                           x5c: [ attestnCert: bytes, * (caCert: bytes) ]
+            #                       } //
+            #                       {
+            #                           alg: COSEAlgorithmIdentifier
+            #                           sig: bytes,
+            #                       }
+            # Dabei gilt:
+            # alg
+            # A COSEAlgorithmIdentifier containing the identifier of the algorithm used to generate the attestation signature.
+            # sig
+            # A byte string containing the attestation signature.
+            # x5c
+            # The elements of this array contain attestnCert and its certificate chain (if any), each encoded in X.509 format. The attestation certificate attestnCert MUST be the first element in the array.
+            # attestnCert
+            # The attestation certificate, encoded in X.509 format.
+            #
+            # Folgende Schritte inklusive Code sind laut WebAuthn-Spezifikation mit dem Input attStmt, authenticatorData und clientDataHash zur Verifizierung nötig: 
+            # ----------------------------------------------------
             attestation_syntaxes = {
                 AT_BASIC: set(['alg', 'x5c', 'sig']),
                 AT_ECDAA: set(['alg', 'sig', 'ecdaaKeyId']),
                 AT_SELF_ATTESTATION: set(['alg', 'sig'])
             }
-
             # Step 1.
             #
             # Verify that attStmt is valid CBOR conforming to the syntax
@@ -644,15 +669,23 @@ class WebAuthnRegistrationResponse(object):
 
             return (attestation_type, trust_path, credential_pub_key, cred_id)
         elif fmt == AT_FMT_NONE:
-            # `none` - indicates that the Relying Party is not interested in
-            # authenticator attestation.
+            # Nach der W3C WebAuthn-Spezifikation (https://www.w3.org/TR/webauthn-2/#sctn-none-attestation) 
+            # sieht die Syntax des None Attestation Statement Format folgendermaßen aus:
+            #
+            # $$attStmtType //= (
+            #                          fmt: "none",
+            #                          attStmt: emptyMap
+            #                      )
+            #
+            #    emptyMap = {}
+            #
+            # Folgende Schritte inklusive Code sind laut WebAuthn-Spezifikation mit dem Input attStmt, authenticatorData und clientDataHash zur Verifizierung nötig:
+            # 1. Return implementation-specific values representing attestation type None and an empty attestation trust path.
+            # ----------------------------------------------------
             if not self.none_attestation_permitted:
                 raise RegistrationRejectedException(
                     'Authenticator attestation is required.')
-
-            # Step 1.
-            #
-            # Return attestation type None with an empty trust path.
+            # 1.
             attestation_type = AT_NONE
             trust_path = []
             return (attestation_type, trust_path, credential_pub_key, cred_id)

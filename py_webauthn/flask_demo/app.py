@@ -110,11 +110,12 @@ def webauthn_begin_activate():
     registration_date=datetime.now().strftime('%d.%m.%Y - %H:%M:%S')
     # Entfernen des Padding aus der gespeicherten Challenge, sodass ein Byte-Vergleich 
     # mit der URL-safe-without-padding-Challenge durchgeführt werden kann, die vom Browser zurückkommt.
-    # Die gepaddete Version wird dennoch an den Browser weitergeben, so dass das JS 
+    # Die gepaddete Version wird dennoch an den Browser weitergeben, so dass JS 
     # die Challenge ohne große Probleme in Binary dekodieren kann.
     session['challenge'] = challenge.rstrip('=')
     session['register_ukey'] = ukey
 
+    #Erstellung des PublicKeyCredentialCreationOptions-Objekts
     make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
         challenge, RP_NAME, RP_ID, ukey, username, display_name,
         registration_date)
@@ -124,12 +125,13 @@ def webauthn_begin_activate():
 @app.route('/webauthn_begin_assertion', methods=['POST'])
 def webauthn_begin_assertion():
     username = request.form.get('login_username')
-
+    
+    #Inputvalidierung Username
     if not util.validate_username(username):
         return make_response(jsonify({'fail': 'Ungültiger Username'}), 401)
 
     user = User.query.filter_by(username=username).first()
-
+    
     if not user:
         return make_response(jsonify({'fail': 'Benutzer nicht registriert'}), 401)
     if not user.credential_id:
@@ -140,7 +142,7 @@ def webauthn_begin_assertion():
     challenge = util.generate_challenge(32)
 
     # Entfernen des Padding aus der in der Session gespeicherten Sitzung
-    # siehe Kommentar in webauthn_begin_activate.
+    # siehe Kommentar in webauthn_begin_activate
     session['challenge'] = challenge.rstrip('=')
     # User formatieren 
     webauthn_user = webauthn.WebAuthnUser(
@@ -160,6 +162,7 @@ def verify_credential_info():
     display_name = session['register_display_name']
     ukey = session['register_ukey']
 
+    
     registration_response = request.form
     trust_anchor_dir = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), TRUST_ANCHOR_DIR)
@@ -167,6 +170,7 @@ def verify_credential_info():
     self_attestation_permitted = True
     none_attestation_permitted = True
 
+    # Überprüfung des AuthenticatorAttestationRespons-Objekts
     webauthn_registration_response = webauthn.WebAuthnRegistrationResponse(
         RP_ID,
         ORIGIN,
