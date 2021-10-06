@@ -104,14 +104,17 @@
   <section class="u-align-center u-clearfix u-image u-shading u-section-1" src="" id="sec-9605" data-image-width="1600"
     data-image-height="1067">
     <div class="u-align-left u-clearfix u-sheet u-sheet-1">
+      <!-- Anzeige Erfolgsmeldung bei Login
       {% with messages = get_flashed_messages() %}
       {% if messages %}
       {% for message in messages %}
       <p class="flash">{{ message }}</li>
-        {% endfor %}
-        {% endif %}
-        {% endwith %}
-        {% if current_user.is_authenticated %}
+      {% endfor %}
+      {% endif %}
+      {% endwith %} -->
+
+      <!-- Informationstabelle wenn Benutzer eingeloggt ist -->
+      {% if current_user.is_authenticated %}
       <h3>Eingeloggt als Benutzer {{ current_user.username }}</h3>
       <table class="tg"
         style="text-align: left; border-collapse: collapse; table-layout:fixed; width: 100%; word-break: break-all; background: rgba(199, 199, 199, 0.75)">
@@ -138,9 +141,11 @@
       </table>
       <p><a href="{{ url_for('logout') }}">Logout</a></p>
       {% else %}
+      <!-- Ausgeblendeter Button zur korrekten Funktionsweise der Login-Funktion (übernommen aus der Python-Bibliothek PyWebAuthn) -->
       <form id="register-form" name="register" method="get">
         <button id="register" type="submit" style="visibility: hidden;">-</button>
       </form>
+      <!-- Login-Funktion mit Textfeld und Submit-Button über GET-Methode (JS wartet im Hintergrund mit der Funktion didClickLogin) -->
       <div class="u-form u-form-1">
         <form id="login-form" name="login" method="get"
           class="u-clearfix u-form-spacing-15 u-form-vertical u-inner-form" style="padding: 15px" source="custom">
@@ -152,7 +157,7 @@
             <button type="submit" id="login" class="u-btn u-btn-submit u-button-style u-grey-30 u-btn-1">Login<br>
           </div>
           {% endif %}
-      
+
         </form>
       </div>
     </div>
@@ -161,7 +166,7 @@
 
   <footer class="u-align-center u-clearfix u-footer u-grey-80 u-footer" id="sec-2e01">
     <div class="u-clearfix u-sheet u-sheet-1">
-      <p class="u-small-text u-text u-text-variant u-text-1">Cem Catak  -   78932   -   Masterarbeit    -   Hochschule Aalen</p>
+      <p class="u-small-text u-text u-text-variant u-text-1">Cem Catak - 78932 - Masterarbeit - Hochschule Aalen</p>
     </div>
   </footer>
 
