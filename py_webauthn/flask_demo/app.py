@@ -162,7 +162,7 @@ def verify_credential_info():
     display_name = session['register_display_name']
     ukey = session['register_ukey']
 
-    
+
     registration_response = request.form
     trust_anchor_dir = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), TRUST_ANCHOR_DIR)
@@ -250,7 +250,7 @@ def verify_assertion():
     except Exception as e:
         return jsonify({'fail': 'Assertion fehlgeschlagen. Error: {}'.format(e)})
 
-    # Update counter.
+    # Update counter
     user.sign_count = sign_count
     db.session.add(user)
     db.session.commit()
