@@ -1,4 +1,4 @@
-# Folgender Code stammt vom Unternehmen Duo Security und wurde unter dem Link https://github.com/duo-labs/py_webauthn von GitHub heruntergeladen. 
+# Folgender Code stammt vom Unternehmen Duo Security und wurde unter dem Link https://github.com/duo-labs/py_webauthn von GitHub heruntergeladen.
 # Einige Abschnitte Stammen vom Autor der Arbeit "Implementierung und Einsatz des WebAuthn-Standard".
 # Um welche Abschnitte es sich dabei handelt, ist der genannten Arbeit zu entnehmen.
 
@@ -26,7 +26,7 @@ def find_version(*file_paths):
     raise RuntimeError('Unable to find version string.')
 
 
-LONG_DESCRIPTION = read('README.rst')
+LONG_DESCRIPTION = read('README.md')
 VERSION = find_version('webauthn', '__init__.py')
 
 

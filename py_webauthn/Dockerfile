@@ -1,4 +1,4 @@
-FROM python:3-slim
+FROM python:3.8.0
 MAINTAINER Duo Labs https://duo.com/labs
 
 RUN mkdir /app
